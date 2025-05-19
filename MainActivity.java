@@ -1,185 +1,116 @@
-// MainActivity.java package com.masud.voicechat;
+package com.masud.voicechat;
 
-import android.content.Intent; import android.os.Bundle; import android.view.View; import android.widget.Button; import android.widget.EditText; import android.widget.Toast;
+import android.Manifest;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
-import com.google.firebase.auth.FirebaseAuth; import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.HashMap;
 
-public class MainActivity extends AppCompatActivity { EditText email, password, roomName; Button loginBtn, createRoomBtn, joinRoomBtn; FirebaseAuth auth; FirebaseFirestore db;
+public class MainActivity extends AppCompatActivity {
 
-@Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
+    EditText email, password, roomName;
+    Button loginBtn, createRoomBtn, joinRoomBtn;
+    FirebaseAuth auth;
+    FirebaseFirestore db;
 
-    email = findViewById(R.id.email);
-    password = findViewById(R.id.password);
-    roomName = findViewById(R.id.roomName);
-    loginBtn = findViewById(R.id.loginBtn);
-    createRoomBtn = findViewById(R.id.createRoomBtn);
-    joinRoomBtn = findViewById(R.id.joinRoomBtn);
+    private final int REQUEST_RECORD_AUDIO_PERMISSION = 101;
 
-    auth = FirebaseAuth.getInstance();
-    db = FirebaseFirestore.getInstance();
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-    loginBtn.setOnClickListener(v -> {
-        String e = email.getText().toString();
-        String p = password.getText().toString();
-        auth.signInWithEmailAndPassword(e, p)
-            .addOnSuccessListener(a -> Toast.makeText(this, "Login successful", Toast.LENGTH_SHORT).show())
-            .addOnFailureListener(e1 -> Toast.makeText(this, e1.getMessage(), Toast.LENGTH_SHORT).show());
-    });
+        email = findViewById(R.id.email);
+        password = findViewById(R.id.password);
+        roomName = findViewById(R.id.roomName);
+        loginBtn = findViewById(R.id.loginBtn);
+        createRoomBtn = findViewById(R.id.createRoomBtn);
+        joinRoomBtn = findViewById(R.id.joinRoomBtn);
 
-    createRoomBtn.setOnClickListener(v -> {
-        String room = roomName.getText().toString();
-        if (!room.isEmpty()) {
-            db.collection("rooms").document(room).set(new HashMap<>());
-            startActivity(new Intent(this, VoiceChatActivity.class).putExtra("room", room));
-        }
-    });
+        auth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
-    joinRoomBtn.setOnClickListener(v -> {
-        String room = roomName.getText().toString();
-        if (!room.isEmpty()) {
-            startActivity(new Intent(this, VoiceChatActivity.class).putExtra("room", room));
-        }
-    });
-}
+        // শুরুতে রুম বাটনগুলো ডিসেবল করে রাখি
+        createRoomBtn.setEnabled(false);
+        joinRoomBtn.setEnabled(false);
 
-}
+        loginBtn.setOnClickListener(v -> {
+            String e = email.getText().toString().trim();
+            String p = password.getText().toString().trim();
 
-// VoiceChatActivity.java package com.masud.voicechat;
+            if (e.isEmpty() || p.isEmpty()) {
+                Toast.makeText(this, "ইমেইল এবং পাসওয়ার্ড দিন", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-import android.os.Bundle;
-
-import androidx.appcompat.app.AppCompatActivity;
-
-import io.agora.rtc.Constants; import io.agora.rtc.RtcEngine; import io.agora.rtc.IRtcEngineEventHandler;
-
-public class VoiceChatActivity extends AppCompatActivity { private RtcEngine mRtcEngine; private final String APP_ID = "d2338c06cd7c4f4caf50d710a3fb6ed1"; // Your Agora App ID private String roomName;
-
-@Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    roomName = getIntent().getStringExtra("room");
-
-    try {
-        mRtcEngine = RtcEngine.create(getBaseContext(), APP_ID, new IRtcEngineEventHandler() {
+            auth.signInWithEmailAndPassword(e, p)
+                    .addOnSuccessListener(authResult -> {
+                        Toast.makeText(this, "লগইন সফল হয়েছে", Toast.LENGTH_SHORT).show();
+                        // লগইন সফল হলে রুম বাটন চালু করো
+                        createRoomBtn.setEnabled(true);
+                        joinRoomBtn.setEnabled(true);
+                    })
+                    .addOnFailureListener(e1 -> Toast.makeText(this, "লগইন ব্যর্থ: " + e1.getMessage(), Toast.LENGTH_SHORT).show());
         });
-    } catch (Exception e) {
-        e.printStackTrace();
+
+        createRoomBtn.setOnClickListener(v -> {
+            String room = roomName.getText().toString().trim();
+            if (room.isEmpty()) {
+                Toast.makeText(this, "রুমের নাম দিন", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            checkAudioPermissionAndStart(room, true);
+        });
+
+        joinRoomBtn.setOnClickListener(v -> {
+            String room = roomName.getText().toString().trim();
+            if (room.isEmpty()) {
+                Toast.makeText(this, "রুমের নাম দিন", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            checkAudioPermissionAndStart(room, false);
+        });
     }
 
-    mRtcEngine.enableAudio();
-    mRtcEngine.joinChannel(null, roomName, "Extra Optional Data", 0);
-}
+    private void checkAudioPermissionAndStart(String room, boolean isCreate) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, REQUEST_RECORD_AUDIO_PERMISSION);
+        } else {
+            startVoiceChat(room, isCreate);
+        }
+    }
 
-@Override
-protected void onDestroy() {
-    super.onDestroy();
-    if (mRtcEngine != null) {
-        mRtcEngine.leaveChannel();
-        RtcEngine.destroy();
-        mRtcEngine = null;
+    private void startVoiceChat(String room, boolean isCreate) {
+        if (isCreate) {
+            db.collection("rooms").document(room).set(new HashMap<>());
+        }
+        Intent intent = new Intent(this, VoiceChatActivity.class);
+        intent.putExtra("room", room);
+        startActivity(intent);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (requestCode == REQUEST_RECORD_AUDIO_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "রেকর্ড অডিও পারমিশন মঞ্জুর হয়েছে", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "রেকর্ড অডিও পারমিশন দরকার", Toast.LENGTH_SHORT).show();
+            }
+        }
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 }
-
-}
-
-// activity_main.xml
-
-<?xml version="1.0" encoding="utf-8"?><LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-android:layout_width="match_parent"
-android:layout_height="match_parent"
-android:orientation="vertical"
-android:padding="16dp">
-
-<EditText
-    android:id="@+id/email"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:hint="Email" />
-
-<EditText
-    android:id="@+id/password"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:hint="Password"
-    android:inputType="textPassword" />
-
-<EditText
-    android:id="@+id/roomName"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:hint="Room Name" />
-
-<Button
-    android:id="@+id/loginBtn"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="Login" />
-
-<Button
-    android:id="@+id/createRoomBtn"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="Create Room" />
-
-<Button
-    android:id="@+id/joinRoomBtn"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="Join Room" />
-
-</LinearLayout>// AndroidManifest.xml <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-package="com.masud.voicechat">
-
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-<application
-    android:allowBackup="true"
-    android:icon="@mipmap/ic_launcher"
-    android:label="@string/app_name"
-    android:roundIcon="@mipmap/ic_launcher_round"
-    android:supportsRtl="true"
-    android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-    <activity android:name=".VoiceChatActivity" />
-    <activity android:name=".MainActivity">
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
-    </activity>
-</application>
-
-</manifest>// build.gradle (Module: app) plugins { id 'com.android.application' id 'com.google.gms.google-services' }
-
-android { namespace 'com.masud.voicechat' compileSdk 34
-
-defaultConfig {
-    applicationId "com.masud.voicechat"
-    minSdk 21
-    targetSdk 34
-    versionCode 1
-    versionName "1.0"
-
-    testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-}
-
-buildTypes {
-    release {
-        minifyEnabled false
-        proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-    }
-}
-
-}
-
-dependencies { implementation 'androidx.appcompat:appcompat:1.6.1' implementation 'com.google.firebase:firebase-auth:22.3.1' implementation 'com.google.firebase:firebase-firestore:24.10.0' implementation 'io.agora.rtc:full-sdk:3.7.0.2' }
-
-// Firebase Firestore Rules (for testing only) rules_version = '2'; service cloud.firestore { match /databases/{database}/documents { match /{document=**} { allow read, write: if true; } } }
-
