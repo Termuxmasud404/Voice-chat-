@@ -1,0 +1,44 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <EditText
+        android:id="@+id/email"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="ইমেইল" />
+
+    <EditText
+        android:id="@+id/password"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="পাসওয়ার্ড"
+        android:inputType="textPassword" />
+
+    <EditText
+        android:id="@+id/roomName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="রুমের নাম" />
+
+    <Button
+        android:id="@+id/loginBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="লগইন" />
+
+    <Button
+        android:id="@+id/createRoomBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="রুম তৈরি করো" />
+
+    <Button
+        android:id="@+id/joinRoomBtn"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="রুমে যোগ দাও" />
+
+</LinearLayout>
